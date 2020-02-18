@@ -1,0 +1,95 @@
+plugins {
+	id 'org.springframework.boot' version '2.2.4.RELEASE'
+	id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+	id 'com.palantir.docker' version '0.22.1'
+    id 'java'
+    id 'jacoco'
+    id 'checkstyle'
+}
+
+group = 'com.mempoolrecorder'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springCloudVersion', "Hoxton.SR1")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.cloud:spring-cloud-starter-config'
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-ribbon'
+	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-hystrix'
+	implementation 'org.springframework.cloud:spring-cloud-stream'
+	implementation 'org.springframework.cloud:spring-cloud-stream-binder-kafka'
+	implementation 'org.springframework.kafka:spring-kafka'
+	
+	testImplementation('org.springframework.boot:spring-boot-starter-test') {
+		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+	}
+	
+	testImplementation 'org.springframework.cloud:spring-cloud-stream-test-support'
+  	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+	
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+test {
+	useJUnitPlatform()
+}
+
+//Fails with less than 20% covering tests
+jacocoTestCoverageVerification	{
+	violationRules	{
+		rule	{
+			limit	{
+				minimum	=	0.2
+			}
+		}
+	}
+}
+
+//plugin checkstyle root file
+checkstyle {
+        configFile = rootProject.file('./checkstyle.xml')
+    }
+
+bootJar {
+    baseName = 'mempoolRecorder'
+    version =  '0.0.1-SNAPSHOT'
+}
+/*// Recommended buy complicated
+task unpack(type: Copy) {
+    dependsOn bootJar
+    from(zipTree(tasks.bootJar.outputs.files.singleFile))
+    into("build/dependency")
+}
+
+docker {
+    name "localhost:5000/mempoolRecorder:latest"
+    copySpec.from(tasks.unpack.outputs).into("dependency")
+    buildArgs(['DEPENDENCY': "dependency"])
+}
+*/
+
+//Easy way
+docker {
+    name "localhost:5000/mempoolRecorder:latest"
+    copySpec.from("build/libs/mempoolRecorder-0.0.1-SNAPSHOT.jar").into("app")
+    buildArgs(['DEPENDENCY': "app"])
+}
