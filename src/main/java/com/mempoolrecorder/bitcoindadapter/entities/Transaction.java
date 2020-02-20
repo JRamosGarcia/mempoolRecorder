@@ -4,23 +4,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.mempoolrecorder.entities.Feeable;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-public class Transaction implements Feeable {
+@Document(collection = "txs")
+public class Transaction {
+	@Id
 	private String txId;
 	private List<TxInput> txInputs = new ArrayList<>();
 	private List<TxOutput> txOutputs = new ArrayList<>();
 	private Integer weight;// for SegWit
 	// BE CAREFUL: THIS FIELD MUST KEPT UPDATED, COULD CHANGE ONCE RECEIVED!!!!
+	@Transient
 	private Fees fees;
 	private Long timeInSecs;// Epoch time in seconds since the transaction entered in mempool (set by
-	// bitcoind).
+							// bitcoind).
 	// BE CAREFUL: THIS FIELD MUST KEPT UPDATED, COULD CHANGE ONCE RECEIVED!!!!
+	@Transient
 	private TxAncestry txAncestry;
 	private Boolean bip125Replaceable;
 	private String hex;// Raw transaction in hexadecimal
-	// RPC
 
 	/**
 	 * Returns all addresses involved in this transaction, address in inputs,
@@ -34,57 +38,20 @@ public class Transaction implements Feeable {
 				.collect(Collectors.toCollection(() -> txInputsAddresses));
 	}
 
-	@Override
-	public String getTxId() {
-		return txId;
-	}
-
 	// Be carefull because tx.getSatvByteIncludingAncestors could not be coherent
 	// with tx.getSatvByte since one is calculated using vSize(a rounded up integer)
 	// and the other using weight (accurate)
-	@Override
-	//@JsonIgnore
+	// @JsonIgnore
 	public double getSatvByteIncludingAncestors() {
 		if (txAncestry.getAncestorSize() == 0)
 			return 0;
 		// txAncestry.getAncestorSize() return vSize. But it is rounded up as is an
 		// integer, not double. :-( .This is not accurate.
 		return ((double) fees.getAncestor()) / ((double) txAncestry.getAncestorSize());
-
 	}
 
-	// Be carefull because tx.getSatvByteIncludingAncestors could not be coherent
-	// with tx.getSatvByte since one is calculated using vSize(a rounded up integer)
-	// and the other using weight (accurate)
-	@Override
-	//@JsonIgnore
-	public double getSatvByte() {
-		// We calculate this using weight, not a vSize field . This is accurate.
-		if (getvSize() == 0)
-			return 0;
-		return (double) (fees.getBase()) / getvSize();
-	}
-
-	@Override
-	@JsonIgnore
-	public long getBaseFees() {
-		return fees.getBase();
-	}
-
-	@Override
-	@JsonIgnore
-	public long getAncestorFees() {
-		return fees.getAncestor();
-	}
-
-	@Override
-	public int getWeight() {
-		return weight;
-	}
-
-	@JsonIgnore
-	public double getvSize() {
-		return weight / 4.0D;
+	public String getTxId() {
+		return txId;
 	}
 
 	public void setTxId(String txId) {
@@ -105,6 +72,10 @@ public class Transaction implements Feeable {
 
 	public void setTxOutputs(List<TxOutput> txOutputs) {
 		this.txOutputs = txOutputs;
+	}
+
+	public Integer getWeight() {
+		return weight;
 	}
 
 	public void setWeight(Integer weight) {
@@ -162,8 +133,6 @@ public class Transaction implements Feeable {
 		builder.append(txOutputs);
 		builder.append(", weight=");
 		builder.append(weight);
-		builder.append(", vSize=");
-		builder.append(getvSize());
 		builder.append(", fees=");
 		builder.append(fees);
 		builder.append(", timeInSecs=");
@@ -199,5 +168,4 @@ public class Transaction implements Feeable {
 			return false;
 		return true;
 	}
-
 }

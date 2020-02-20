@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.Validate;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -26,14 +27,18 @@ import com.mempoolrecorder.MempoolRecorderApplication;
 import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
 import com.mempoolrecorder.bitcoindadapter.entities.blockchain.Block;
 import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
+import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxAncestryChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
 import com.mempoolrecorder.components.TxMemPool;
 import com.mempoolrecorder.components.alarms.AlarmLogger;
 import com.mempoolrecorder.components.containers.BlockTemplateContainer;
 import com.mempoolrecorder.entities.BlockTemplate;
+import com.mempoolrecorder.entities.database.StateOnNewBlock;
 import com.mempoolrecorder.events.CustomChannels;
 import com.mempoolrecorder.events.MempoolEvent;
 import com.mempoolrecorder.feinginterfaces.BitcoindAdapter;
+import com.mempoolrecorder.repositories.SonbRepository;
+import com.mempoolrecorder.repositories.TxRepository;
 
 @EnableBinding(CustomChannels.class)
 public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<ListenerContainerIdleEvent> {
@@ -52,6 +57,12 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 
 	@Autowired
 	private BitcoindAdapter bitcoindAdapter;
+
+	@Autowired
+	private TxRepository txRepository;
+
+	@Autowired
+	private SonbRepository sonbRepository;
 
 	@Value("${spring.cloud.stream.bindings.txMemPoolEvents.destination}")
 	private String topic;
@@ -151,8 +162,25 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 	private void OnNewBlock(Block block) {
 
 		logger.info("New block with height: {}, numConsecutiveBlocks: {}", block.getHeight(), numConsecutiveBlocks);
-		// TODO Refresh mempool?
 
+		StateOnNewBlock sonb = new StateOnNewBlock();
+
+		sonb.setHeight(block.getHeight());
+		sonb.setBlock(block);
+		sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
+				.collect(Collectors.toList()));
+		//sonb.setLastFullSoabHeight(block.getHeight());
+		// sonb.setNewTxs(newTxs);
+		// sonb.setRemovedTxsId(removedTxsId);
+
+		txMemPool.getDescendingTxStream().forEach(tx -> {
+			sonb.getMemPool().add(tx.getTxId());
+			sonb.getTxAncestryChangesMap().put(tx.getTxId(), new TxAncestryChanges(tx.getFees(), tx.getTxAncestry()));
+			if(!txRepository.existsById(tx.getTxId())){
+				txRepository.insert(tx);
+			}
+		});
+		sonbRepository.insert(sonb);
 	}
 
 	// Refresh mempool, liveMiningQueue, blockTemplateContainer and
