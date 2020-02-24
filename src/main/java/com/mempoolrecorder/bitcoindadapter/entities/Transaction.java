@@ -8,6 +8,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Document(collection = "txs")
 public class Transaction {
 	@Id
@@ -41,7 +43,7 @@ public class Transaction {
 	// Be carefull because tx.getSatvByteIncludingAncestors could not be coherent
 	// with tx.getSatvByte since one is calculated using vSize(a rounded up integer)
 	// and the other using weight (accurate)
-	// @JsonIgnore
+	@JsonIgnore
 	public double getSatvByteIncludingAncestors() {
 		if (txAncestry.getAncestorSize() == 0)
 			return 0;

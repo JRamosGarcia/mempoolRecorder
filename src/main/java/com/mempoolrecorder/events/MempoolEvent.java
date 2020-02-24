@@ -25,10 +25,6 @@ public class MempoolEvent {
 	private MempoolEvent() {
 	}
 
-	public EventType getEventType() {
-		return eventType;
-	}
-
 	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges,
 			Optional<BlockTemplateChanges> blockTemplateChanges) {
 		MempoolEvent mpe = new MempoolEvent();
@@ -64,6 +60,22 @@ public class MempoolEvent {
 			return Optional.ofNullable(blockTemplateChanges);
 		}
 		return Optional.empty();
+	}
+
+	public EventType getEventType() {
+		return eventType;
+	}
+
+	public Block getBlock() {
+		return block;
+	}
+
+	public TxPoolChanges getTxPoolChanges() {
+		return txPoolChanges;
+	}
+
+	public BlockTemplateChanges getBlockTemplateChanges() {
+		return blockTemplateChanges;
 	}
 
 	public void setEventType(EventType eventType) {

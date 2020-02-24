@@ -169,14 +169,14 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 		sonb.setBlock(block);
 		sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
 				.collect(Collectors.toList()));
-		//sonb.setLastFullSoabHeight(block.getHeight());
+		// sonb.setLastFullSoabHeight(block.getHeight());
 		// sonb.setNewTxs(newTxs);
 		// sonb.setRemovedTxsId(removedTxsId);
 
 		txMemPool.getDescendingTxStream().forEach(tx -> {
 			sonb.getMemPool().add(tx.getTxId());
 			sonb.getTxAncestryChangesMap().put(tx.getTxId(), new TxAncestryChanges(tx.getFees(), tx.getTxAncestry()));
-			if(!txRepository.existsById(tx.getTxId())){
+			if (!txRepository.existsById(tx.getTxId())) {
 				txRepository.insert(tx);
 			}
 		});

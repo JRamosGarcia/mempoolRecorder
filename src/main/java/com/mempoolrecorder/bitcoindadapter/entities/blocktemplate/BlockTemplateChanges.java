@@ -1,11 +1,12 @@
 package com.mempoolrecorder.bitcoindadapter.entities.blocktemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class BlockTemplateChanges {
 
-	private List<BlockTemplateTx> addBTTxsList;
-	private List<String> removeBTTxIdsList;
+	private List<BlockTemplateTx> addBTTxsList = new ArrayList<>();
+	private List<String> removeBTTxIdsList = new ArrayList<>();
 
 	public List<BlockTemplateTx> getAddBTTxsList() {
 		return addBTTxsList;
