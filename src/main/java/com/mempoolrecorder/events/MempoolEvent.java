@@ -28,7 +28,23 @@ public class MempoolEvent {
 	public EventType getEventType() {
 		return eventType;
 	}
-	
+
+	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges,
+			Optional<BlockTemplateChanges> blockTemplateChanges) {
+		MempoolEvent mpe = new MempoolEvent();
+		mpe.eventType = EventType.REFRESH_POOL;
+		mpe.txPoolChanges = txPoolChanges;
+		mpe.blockTemplateChanges = blockTemplateChanges.orElse(null);
+		return mpe;
+	}
+
+	public static MempoolEvent createFrom(Block block) {
+		MempoolEvent mpe = new MempoolEvent();
+		mpe.eventType = EventType.NEW_BLOCK;
+		mpe.block = block;
+		return mpe;
+	}
+
 	public Optional<Block> tryGetBlock() {
 		if (this.eventType != null && this.eventType == EventType.NEW_BLOCK) {
 			return Optional.ofNullable(block);
@@ -49,7 +65,7 @@ public class MempoolEvent {
 		}
 		return Optional.empty();
 	}
-	
+
 	public void setEventType(EventType eventType) {
 		this.eventType = eventType;
 	}

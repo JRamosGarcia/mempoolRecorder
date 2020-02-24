@@ -22,6 +22,8 @@ public class StateOnNewBlock {
 	private Integer height;
 
 	private Block block;
+	
+	private Set<String> memPool = new HashSet<>();
 
 	private List<BlockTemplateTx> blockTemplate = new ArrayList<>(SysProps.EXPECTED_NUM_TX_IN_BLOCK);
 
