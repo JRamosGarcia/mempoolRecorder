@@ -167,11 +167,12 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 
 		sonb.setHeight(block.getHeight());
 		sonb.setBlock(block);
-		sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
-				.collect(Collectors.toList()));
-		// sonb.setLastFullSoabHeight(block.getHeight());
-		// sonb.setNewTxs(newTxs);
-		// sonb.setRemovedTxsId(removedTxsId);
+		if (numConsecutiveBlocks == 0) {
+			// If not, block Template is empty, because txMempool would not had received
+			// this data from bitcoind
+			sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
+					.collect(Collectors.toList()));
+		}
 
 		txMemPool.getDescendingTxStream().forEach(tx -> {
 			sonb.getMemPool().add(tx.getTxId());
@@ -180,7 +181,28 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 				txRepository.insert(tx);
 			}
 		});
+
+		// To emulate the data txMempool would have had
+		substractAlreadyMinedToSonb(sonb);
 		sonbRepository.insert(sonb);
+	}
+
+	private void substractAlreadyMinedToSonb(StateOnNewBlock sonb) {
+		int count = numConsecutiveBlocks;
+		while (count > 0) {
+			int blockToFind = sonb.getHeight() - count;
+			Optional<StateOnNewBlock> opSonbBD = sonbRepository.findById(blockToFind);
+			if (opSonbBD.isEmpty()) {
+				alarmLogger.addAlarm("Block: " + blockToFind + " is not found in db");
+			} else {
+				StateOnNewBlock sonbBD = opSonbBD.get();
+				sonbBD.getBlock().getTxIds().forEach(txId -> {
+					sonb.getMemPool().remove(txId);
+					sonb.getTxAncestryChangesMap().remove(txId);
+				});
+			}
+			count--;
+		}
 	}
 
 	// Refresh mempool, liveMiningQueue, blockTemplateContainer and
