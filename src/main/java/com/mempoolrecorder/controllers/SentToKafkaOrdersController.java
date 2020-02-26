@@ -20,6 +20,7 @@ import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
 import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxAncestryChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
+import com.mempoolrecorder.controllers.entities.RangeExecutionInfo;
 import com.mempoolrecorder.controllers.errors.ErrorDetails;
 import com.mempoolrecorder.controllers.exceptions.BlockNotFoundException;
 import com.mempoolrecorder.controllers.exceptions.TransactionNotFoundException;
@@ -50,6 +51,7 @@ public class SentToKafkaOrdersController {
 		return sonbRepository.existsById(height);
 	}
 
+	// TODO: this shoud be a post
 	@GetMapping("/sendStateOnBlock/{height}")
 	public void sendStateOnBlock(@PathVariable("height") Integer height)
 			throws BlockNotFoundException, TransactionNotFoundException {
@@ -60,10 +62,45 @@ public class SentToKafkaOrdersController {
 		}
 		StateOnNewBlock sonb = opSonb.get();
 
+		// First we send full mempool
 		sendFullMemPool(sonb);
 
-		// Send Block
+		// Then we send the Block
 		txSource.publishMemPoolEvent(MempoolEvent.createFrom(sonb.getBlock()));
+
+	}
+
+	// TODO: this shoud be a post
+	@GetMapping("/sendRangeStateOnBlock/{initHeight}/{endHeight}")
+	public RangeExecutionInfo sendRangeStateOnBlock(@PathVariable("initHeight") Integer initHeight,
+			@PathVariable("endHeight") Integer endHeight) throws TransactionNotFoundException {
+		RangeExecutionInfo rei = new RangeExecutionInfo();
+		if (initHeight > endHeight) {
+			rei.getExecutionInfoList().add("initHeight>endHeight");
+			return rei;
+		}
+
+		int currHeight = initHeight;
+		int plIndex = 0;
+		PercentLog pl = new PercentLog(endHeight - initHeight);
+		while (currHeight <= endHeight) {
+			Optional<StateOnNewBlock> opSonb = sonbRepository.findById(currHeight);
+			if (opSonb.isEmpty()) {
+				rei.getExecutionInfoList().add("block with height:" + currHeight + ", not found.");
+				logger.info("block with height:" + currHeight + ", not found.");
+			} else {
+				StateOnNewBlock sonb = opSonb.get();
+				// First we send full mempool
+				sendFullMemPool(sonb);
+				// Then we send the Block
+				txSource.publishMemPoolEvent(MempoolEvent.createFrom(sonb.getBlock()));
+				rei.getExecutionInfoList().add("block with height:" + currHeight + ", sent.");
+				logger.info("block with height:" + currHeight + ", sent.");
+			}
+			currHeight++;
+			pl.update(plIndex++, (percent) -> logger.info("SEND_RANGE_STATE_ON_BLOCK... {}", percent));
+		}
+		return rei;
 	}
 
 	private void sendFullMemPool(StateOnNewBlock sonb) throws TransactionNotFoundException {
@@ -94,7 +131,8 @@ public class SentToKafkaOrdersController {
 				}
 				txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, opBTC));
 				txpc.setNewTxs(new ArrayList<>(10));
-				pl.update(counter, (percent) -> logger.info("Sending full txMemPool: {}", percent));
+				pl.update(counter, (percent) -> logger.info("Sending txMemPool for StateOnNewBlock:{} ....{}",
+						sonb.getHeight(), percent));
 			}
 			txpc.getNewTxs().add(tx);
 			counter++;
@@ -103,7 +141,8 @@ public class SentToKafkaOrdersController {
 		if (txpc.getNewTxs().size() != 0) {
 			txpc.setChangeCounter(1);// Force liveMempoolRefresh in txMempool
 			txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, createBTCFrom(sonb)));// Send blockTemplate
-			pl.update(counter, (percent) -> logger.info("Sending full txMemPool: {}", percent));
+			pl.update(counter, (percent) -> logger.info("Sending txMemPool for StateOnNewBlock:{} ....{}",
+					sonb.getHeight(), percent));
 		}
 	}
 

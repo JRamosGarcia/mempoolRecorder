@@ -45,7 +45,7 @@ public class BlockTemplateContainerImpl implements BlockTemplateContainer {
 		});
 		setBlockTemplate(bt);
 
-		logger.info("new BlockTemplate size: {} new: {} remove: {}", bt.getBlockTemplateTxMap().size(),
+		logger.info("new BlockTemplate(size: {} new: {} remove: {})", bt.getBlockTemplateTxMap().size(),
 				btc.getAddBTTxsList().size(), btc.getRemoveBTTxIdsList().size());
 	}
 
