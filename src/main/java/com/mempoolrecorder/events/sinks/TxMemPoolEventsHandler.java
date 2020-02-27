@@ -84,8 +84,8 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 		try {
 			if ((mempoolEvent.getEventType() == MempoolEvent.EventType.NEW_BLOCK) && (!initializing.get())) {
 				Block block = mempoolEvent.tryGetBlock().get();
-				logger.info("New Block with {} transactions ---------------------------------------------------",
-						block.getTxIds().size());
+				logger.info("New block(height: " + block.getHeight() + ", hash:" + block.getHash() + "txNum: "
+						+ block.getTxIds().size() + ") ---------------------------");
 				OnNewBlock(block);
 				// alarmLogger.prettyPrint();
 				numConsecutiveBlocks++;
