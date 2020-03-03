@@ -178,13 +178,13 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 			sonb.getMemPool().add(tx.getTxId());
 			sonb.getTxAncestryChangesMap().put(tx.getTxId(), new TxAncestryChanges(tx.getFees(), tx.getTxAncestry()));
 			if (!txRepository.existsById(tx.getTxId())) {
-				txRepository.insert(tx);
+				txRepository.save(tx);
 			}
 		});
 
 		// To emulate the data txMempool would have had
 		substractAlreadyMinedToSonb(sonb);
-		sonbRepository.insert(sonb);
+		sonbRepository.save(sonb);
 	}
 
 	private void substractAlreadyMinedToSonb(StateOnNewBlock sonb) {
