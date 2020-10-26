@@ -2,7 +2,7 @@ package com.mempoolrecorder.controllers.exceptions;
 
 public class SendRangeStateOnBlockException extends Exception {
 
-	private static final long serialVersionUID = -8242673919736905866L;
+	private static final long serialVersionUID = 1L;
 
 	public SendRangeStateOnBlockException() {
 		super();

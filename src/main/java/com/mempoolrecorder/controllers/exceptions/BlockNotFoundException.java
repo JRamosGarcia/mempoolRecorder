@@ -2,7 +2,7 @@ package com.mempoolrecorder.controllers.exceptions;
 
 public class BlockNotFoundException extends Exception {
 
-	private static final long serialVersionUID = -9068124652199402038L;
+	private static final long serialVersionUID = 1L;
 
 	public BlockNotFoundException() {
 		super();

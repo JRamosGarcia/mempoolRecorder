@@ -2,7 +2,7 @@ package com.mempoolrecorder.controllers.exceptions;
 
 public class TransactionNotFoundException extends Exception {
 
-	private static final long serialVersionUID = 3372623966394648556L;
+	private static final long serialVersionUID = 1L;
 
 	public TransactionNotFoundException() {
 		super();
