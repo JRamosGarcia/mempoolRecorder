@@ -29,7 +29,7 @@ public class TxInput {
 		this.txId = txId;
 	}
 
-	public void setvOutIndex(Integer vOutIndex) {
+	public void setVOutIndex(Integer vOutIndex) {
 		this.vOutIndex = vOutIndex;
 	}
 
@@ -41,7 +41,7 @@ public class TxInput {
 		return txId;
 	}
 
-	public Integer getvOutIndex() {
+	public Integer getVOutIndex() {
 		return vOutIndex;
 	}
 

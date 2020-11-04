@@ -144,7 +144,7 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 		tx.getTxInputs().forEach(input -> {
 			if (input.getCoinbase() == null) {
 				Validate.notNull(input.getTxId(), "input.txId can't be null");
-				Validate.notNull(input.getvOutIndex(), "input.voutIndex can't be null");
+				Validate.notNull(input.getVOutIndex(), "input.voutIndex can't be null");
 				Validate.notNull(input.getAmount(), "input.amount can't be null");
 				// Input address could be null in case of unrecognized input scripts
 				// Validate.notNull(input.getAddressIds());
