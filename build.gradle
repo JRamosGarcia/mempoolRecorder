@@ -5,6 +5,7 @@ plugins {
     id 'java'
     id 'jacoco'
     id 'checkstyle'
+	id "io.freefair.lombok" version "5.0.0-rc4"
 }
 
 group = 'com.mempoolrecorder'
