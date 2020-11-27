@@ -1,6 +1,5 @@
 package com.mempoolrecorder.components;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -18,15 +17,9 @@ public interface TxMemPool {
 	
 	Set<String> getAllTxIds();
 
-	Set<String> getAllParentsOf(Transaction tx);
-
-	Set<String> getAllChildrenOf(Transaction tx);
-
 	boolean containsTxId(String txId);
 
 	Optional<Transaction> getTx(String txId);
-
-	Stream<Transaction> getTxsAfter(Instant instant);
 
 	void drop();
 

@@ -6,16 +6,21 @@ import com.mempoolrecorder.bitcoindadapter.entities.blockchain.Block;
 import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * This class is an union of Block and TxPoolChanges since is meant to be used
  * as a kafka message for same topic conserving message order. The topic is a
  * "mempool event"
  */
+@Getter
+@Setter
 public class MempoolEvent {
 	//
 	public enum EventType {
 		NEW_BLOCK, REFRESH_POOL
-	};
+	}
 
 	private EventType eventType;
 	private Block block;
@@ -60,38 +65,6 @@ public class MempoolEvent {
 			return Optional.ofNullable(blockTemplateChanges);
 		}
 		return Optional.empty();
-	}
-
-	public EventType getEventType() {
-		return eventType;
-	}
-
-	public Block getBlock() {
-		return block;
-	}
-
-	public TxPoolChanges getTxPoolChanges() {
-		return txPoolChanges;
-	}
-
-	public BlockTemplateChanges getBlockTemplateChanges() {
-		return blockTemplateChanges;
-	}
-
-	public void setEventType(EventType eventType) {
-		this.eventType = eventType;
-	}
-
-	public void setBlock(Block block) {
-		this.block = block;
-	}
-
-	public void setTxPoolChanges(TxPoolChanges txPoolChanges) {
-		this.txPoolChanges = txPoolChanges;
-	}
-
-	public void setBlockTemplateChanges(BlockTemplateChanges blockTemplateChanges) {
-		this.blockTemplateChanges = blockTemplateChanges;
 	}
 
 }

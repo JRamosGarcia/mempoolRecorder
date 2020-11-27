@@ -8,21 +8,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.Validate;
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.stream.annotation.EnableBinding;
-import org.springframework.cloud.stream.annotation.StreamListener;
-import org.springframework.context.ApplicationListener;
-import org.springframework.core.task.TaskExecutor;
-import org.springframework.kafka.event.ListenerContainerIdleEvent;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.handler.annotation.Header;
-
 import com.mempoolrecorder.MempoolRecorderApplication;
 import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
 import com.mempoolrecorder.bitcoindadapter.entities.blockchain.Block;
@@ -34,13 +19,27 @@ import com.mempoolrecorder.components.alarms.AlarmLogger;
 import com.mempoolrecorder.components.containers.BlockTemplateContainer;
 import com.mempoolrecorder.entities.BlockTemplate;
 import com.mempoolrecorder.entities.database.StateOnNewBlock;
-import com.mempoolrecorder.events.CustomChannels;
 import com.mempoolrecorder.events.MempoolEvent;
 import com.mempoolrecorder.feinginterfaces.BitcoindAdapter;
 import com.mempoolrecorder.repositories.SonbRepository;
 import com.mempoolrecorder.repositories.TxRepository;
 
-@EnableBinding(CustomChannels.class)
+import org.apache.commons.lang3.Validate;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.stream.annotation.StreamListener;
+import org.springframework.context.ApplicationListener;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.kafka.event.ListenerContainerIdleEvent;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+//@EnableBinding(CustomChannels.class)
 public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<ListenerContainerIdleEvent> {
 
 	@Autowired
@@ -69,7 +68,7 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 
 	private AtomicBoolean doResume = new AtomicBoolean(false);
 
-	private int numConsecutiveBlocks = 0;// Number of consecutive Blocks before a refresh is made.
+	private int numBlocksBeforeBlockTC = 0;// Number of consecutive Blocks before a blockTemplateChanges arrives.
 
 	private AtomicBoolean initializing = new AtomicBoolean(true);
 
@@ -77,30 +76,38 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 
 	private boolean updateFullTxMemPool = true;
 
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
 	@StreamListener("txMemPoolEvents")
 	public void blockSink(MempoolEvent mempoolEvent, @Header(KafkaHeaders.CONSUMER) Consumer<?, ?> consumer) {
 		try {
 			if ((mempoolEvent.getEventType() == MempoolEvent.EventType.NEW_BLOCK) && (!initializing.get())) {
-				Block block = mempoolEvent.tryGetBlock().get();
-				logger.info("New block(height: " + block.getHeight() + ", hash:" + block.getHash() + "txNum: "
-						+ block.getTxIds().size() + ") ---------------------------");
-				OnNewBlock(block);
-				// alarmLogger.prettyPrint();
-				numConsecutiveBlocks++;
+				Optional<Block> opBlock = mempoolEvent.tryGetBlock();
+				if (opBlock.isEmpty()) {
+					alarmLogger.addAlarm("An empty block has come in a MempoolEvent.EventType.NEW_BLOCK");
+					return;
+				}
+				Block block = opBlock.get();
+				log.info("New block(connected: {}, height: {}, hash: {}, txNum: {}) ---------------------------",
+						block.getConnected(), block.getHeight(), block.getHash(), block.getTxIds().size());
+				onNewBlock(block);
+				numBlocksBeforeBlockTC++;
 			} else if (mempoolEvent.getEventType() == MempoolEvent.EventType.REFRESH_POOL) {
-				numConsecutiveBlocks = 0;
-				// OnRefreshPool
-				TxPoolChanges txpc = mempoolEvent.tryGetTxPoolChanges().get();
+				Optional<TxPoolChanges> opTxPC = mempoolEvent.tryGetTxPoolChanges();
+				if (opTxPC.isEmpty()) {
+					alarmLogger.addAlarm("An empty TxPoolChanges has come in a MempoolEvent.EventType.REFRESH_POOL");
+					return;
+				}
+				TxPoolChanges txpc = opTxPC.get();
 				Optional<BlockTemplateChanges> opBTC = mempoolEvent.tryGetBlockTemplateChanges();
+				if (opBTC.isPresent()) {
+					numBlocksBeforeBlockTC = 0;
+				}
 				validate(txpc);
 				// When initializing but bitcoindAdapter is not intitializing
 				if ((initializing.get()) && (txpc.getChangeCounter() != 0) && (!loadingFullMempool.get())) {
 					// We pause incoming messages, but several messages has been taken from kafka at
 					// once so this method will be called several times. Refresh the mempool only if
 					// not initializing
-					logger.info("txMemPool is starting but bitcoindAdapter started long ago... "
+					log.info("txMemPool is starting but bitcoindAdapter started long ago... "
 							+ "pausing receiving kafka messages and loading full mempool from REST interface");
 					consumer.pause(Collections.singleton(new TopicPartition(topic, 0)));
 					loadingFullMempool.set(true);
@@ -112,13 +119,13 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 				}
 			}
 		} catch (Exception e) {
-			logger.error("Exception: ", e);
+			log.error("Exception: ", e);
 			alarmLogger.addAlarm("Exception in @StreamListener of txMemPoolEvents" + e.toString());
 		}
 	}
 
 	private void validate(TxPoolChanges txpc) {
-		txpc.getNewTxs().stream().forEach(tx -> validateTx(tx));
+		txpc.getNewTxs().stream().forEach(this::validateTx);
 	}
 
 	private void validateTx(Transaction tx) {
@@ -147,7 +154,6 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 				Validate.notNull(input.getVOutIndex(), "input.voutIndex can't be null");
 				Validate.notNull(input.getAmount(), "input.amount can't be null");
 				// Input address could be null in case of unrecognized input scripts
-				// Validate.notNull(input.getAddressIds());
 			}
 		});
 
@@ -159,15 +165,15 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 
 	}
 
-	private void OnNewBlock(Block block) {
+	private void onNewBlock(Block block) {
 
-		logger.info("New block with height: {}, numConsecutiveBlocks: {}", block.getHeight(), numConsecutiveBlocks);
+		log.info("New block with height: {}, numBlocksBeforeBlockTC: {}", block.getHeight(), numBlocksBeforeBlockTC);
 
 		StateOnNewBlock sonb = new StateOnNewBlock();
 
 		sonb.setHeight(block.getHeight());
 		sonb.setBlock(block);
-		if (numConsecutiveBlocks == 0) {
+		if (numBlocksBeforeBlockTC == 0) {
 			// If not, block Template is empty, because txMempool would not had received
 			// this data from bitcoind
 			sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
@@ -182,27 +188,7 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 			}
 		});
 
-		// To emulate the data txMempool would have had
-		substractAlreadyMinedToSonb(sonb);
 		sonbRepository.save(sonb);
-	}
-
-	private void substractAlreadyMinedToSonb(StateOnNewBlock sonb) {
-		int count = numConsecutiveBlocks;
-		while (count > 0) {
-			int blockToFind = sonb.getHeight() - count;
-			Optional<StateOnNewBlock> opSonbBD = sonbRepository.findById(blockToFind);
-			if (opSonbBD.isEmpty()) {
-				alarmLogger.addAlarm("Block: " + blockToFind + " is not found in db");
-			} else {
-				StateOnNewBlock sonbBD = opSonbBD.get();
-				sonbBD.getBlock().getTxIds().forEach(txId -> {
-					sonb.getMemPool().remove(txId);
-					sonb.getTxAncestryChangesMap().remove(txId);
-				});
-			}
-			count--;
-		}
 	}
 
 	// Refresh mempool, liveMiningQueue, blockTemplateContainer and
@@ -216,7 +202,7 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 	public void refreshMempool(TxPoolChanges txPoolChanges) {
 		if (txPoolChanges.getChangeCounter() == 0) {
 			if (updateFullTxMemPool) {
-				logger.info("Receiving full txMemPool due to bitcoindAdapter/txMemPool (re)start. "
+				log.info("Receiving full txMemPool due to bitcoindAdapter/txMemPool (re)start. "
 						+ "Dropping last txMemPool and BlockTemplate (if any) It can take a while...");
 				txMemPool.drop();
 				blockTemplateContainer.drop();
@@ -225,11 +211,11 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 			txMemPool.refresh(txPoolChanges);
 		} else {
 			if (!updateFullTxMemPool) {
-				logger.info("Full txMemPool received!");
+				log.info("Full txMemPool received!");
 			}
 			updateFullTxMemPool = true;// Needed if bitcoindAdapter restarts
 			txMemPool.refresh(txPoolChanges);
-			logger.info("{} transactions in txMemPool.", txMemPool.getTxNumber());
+			log.info("{} transactions in txMemPool.", txMemPool.getTxNumber());
 		}
 	}
 
@@ -241,9 +227,8 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 	// calling thread.
 	@Override
 	public void onApplicationEvent(ListenerContainerIdleEvent event) {
-		// logger.info(event.toString());
 		if (doResume.get()) {
-			if (event.getConsumer().paused().size() > 0) {
+			if (!event.getConsumer().paused().isEmpty()) {
 				event.getConsumer().resume(event.getConsumer().paused());
 			}
 			doResume.set(false);
@@ -268,7 +253,7 @@ public class TxMemPoolEventsHandler implements Runnable, ApplicationListener<Lis
 			doResume.set(true);
 		} catch (Exception e) {
 			// When loading if there are no clients, shutdown.
-			logger.error(e.toString());
+			log.error(e.toString());
 			alarmLogger.addAlarm("Eror en MemPoolEventsHandler.run, stopping txMemPool service: " + e.toString());
 			MempoolRecorderApplication.exit();
 		}

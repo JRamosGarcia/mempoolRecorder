@@ -1,0 +1,17 @@
+package com.mempoolrecorder.components.containers;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+import com.mempoolrecorder.events.MempoolEvent;
+
+public class MempoolEventQueueContainerImpl implements MempoolEventQueueContainer {
+
+    BlockingQueue<MempoolEvent> blockingQueue = new LinkedBlockingQueue<>();
+
+    @Override
+    public BlockingQueue<MempoolEvent> getBlockingQueue() {
+        return this.blockingQueue;
+    }
+
+}

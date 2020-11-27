@@ -20,7 +20,7 @@ public class NotInMemPoolTx implements Feeable {
 		return txId;
 	}
 
-	// TODO: This two methods should not return the same but we don't have enough
+	// This two methods should not return the same but we don't have enough
 	// information
 	@Override
 	public double getSatvByteIncludingAncestors() {
@@ -40,7 +40,7 @@ public class NotInMemPoolTx implements Feeable {
 	// This has no information of ancestors
 	@Override
 	public long getAncestorFees() {
-		return fees;
+		return getBaseFees();
 	}
 
 	@Override
@@ -53,7 +53,7 @@ public class NotInMemPoolTx implements Feeable {
 	}
 
 	public Long getFees() {
-		return fees;
+		return getBaseFees();
 	}
 
 	public void setFees(Long fees) {

@@ -2,19 +2,18 @@ package com.mempoolrecorder.components.containers;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.components.alarms.AlarmLogger;
 import com.mempoolrecorder.entities.BlockTemplate;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class BlockTemplateContainerImpl implements BlockTemplateContainer {
-
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired
 	AlarmLogger alarmLogger;
@@ -39,13 +38,13 @@ public class BlockTemplateContainerImpl implements BlockTemplateContainer {
 		btc.getAddBTTxsList().forEach(btTx -> bt.getBlockTemplateTxMap().put(btTx.getTxId(), btTx));
 		btc.getRemoveBTTxIdsList().forEach(btTxId -> {
 			if (null == bt.getBlockTemplateTxMap().remove(btTxId)) {
-				logger.error("BlockTemplate does not have txId: " + btTxId);
+				log.error("BlockTemplate does not have txId: {}", btTxId);
 				alarmLogger.addAlarm("BlockTemplate does not have txId: " + btTxId);
 			}
 		});
 		setBlockTemplate(bt);
 
-		logger.info("new BlockTemplate(size: {} new: {} remove: {})", bt.getBlockTemplateTxMap().size(),
+		log.info("new BlockTemplate(size: {} new: {} remove: {})", bt.getBlockTemplateTxMap().size(),
 				btc.getAddBTTxsList().size(), btc.getRemoveBTTxIdsList().size());
 	}
 

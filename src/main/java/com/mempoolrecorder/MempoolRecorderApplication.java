@@ -1,6 +1,5 @@
 package com.mempoolrecorder;
 
-import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.circuitbreaker.EnableCircuitBreaker;
@@ -21,13 +20,7 @@ public class MempoolRecorderApplication {
 	}
 
 	public static void exit() {
-		SpringApplication.exit(context, new ExitCodeGenerator() {
-			@Override
-			public int getExitCode() {
-				// return the error code
-				return 1;
-			}
-		});
+		SpringApplication.exit(context, () -> 1);
 	}
 
 }
