@@ -5,6 +5,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import com.mempoolrecorder.events.MempoolEvent;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class MempoolEventQueueContainerImpl implements MempoolEventQueueContainer {
 
     BlockingQueue<MempoolEvent> blockingQueue = new LinkedBlockingQueue<>();

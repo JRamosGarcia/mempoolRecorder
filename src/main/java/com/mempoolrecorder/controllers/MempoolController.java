@@ -1,24 +1,22 @@
 package com.mempoolrecorder.controllers;
 
-import java.util.List;
+import com.mempoolrecorder.components.TxMemPool;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mempoolrecorder.components.alarms.AlarmLogger;
-
 @RestController
-@RequestMapping("/alarms")
-public class AlarmsController {
+@RequestMapping("/mempool")
+public class MempoolController {
 
-	@Autowired
-	private AlarmLogger alarmLogger;
+    @Autowired
+    private TxMemPool txMemPool;
 
-	@GetMapping("/list")
-	public List<String> getAlarms() {
-		return alarmLogger.getAlarmList();
-	}
+    @GetMapping("/size")
+    public int getSize() {
+        return txMemPool.getTxNumber();
+    }
 
 }
