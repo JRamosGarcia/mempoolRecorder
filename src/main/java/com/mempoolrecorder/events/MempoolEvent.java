@@ -22,6 +22,7 @@ public class MempoolEvent {
 		NEW_BLOCK, REFRESH_POOL
 	}
 
+	private int seqNumber;
 	private EventType eventType;
 	private Block block;
 	private TxPoolChanges txPoolChanges;
@@ -31,16 +32,18 @@ public class MempoolEvent {
 	}
 
 	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges,
-			Optional<BlockTemplateChanges> blockTemplateChanges) {
+			Optional<BlockTemplateChanges> blockTemplateChanges, int seqNumber) {
 		MempoolEvent mpe = new MempoolEvent();
+		mpe.seqNumber = seqNumber;
 		mpe.eventType = EventType.REFRESH_POOL;
 		mpe.txPoolChanges = txPoolChanges;
 		mpe.blockTemplateChanges = blockTemplateChanges.orElse(null);
 		return mpe;
 	}
 
-	public static MempoolEvent createFrom(Block block) {
+	public static MempoolEvent createFrom(Block block, int seqNumber) {
 		MempoolEvent mpe = new MempoolEvent();
+		mpe.seqNumber = seqNumber;
 		mpe.eventType = EventType.NEW_BLOCK;
 		mpe.block = block;
 		return mpe;

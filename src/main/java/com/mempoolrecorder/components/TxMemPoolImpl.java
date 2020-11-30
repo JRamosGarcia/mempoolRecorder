@@ -101,17 +101,15 @@ public class TxMemPoolImpl implements TxMemPool {
 
 	private void logTxPoolChanges(TxPoolChanges txpc) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("TxPoolChanges(");
-		sb.append(txpc.getChangeCounter());
-		sb.append("): ");
+		sb.append("TxPoolChanges: ");
 		sb.append(txpc.getNewTxs().size());
 		sb.append(" new transactions, ");
 		sb.append(txpc.getRemovedTxsId().size());
 		sb.append(" removed transactions, ");
 		sb.append(txpc.getTxAncestryChangesMap().size());
 		sb.append(" updated transactions.");
-		if (log.isInfoEnabled()) {
-			log.info(sb.toString());
+		if (log.isDebugEnabled()) {
+			log.debug(sb.toString());
 		}
 	}
 
