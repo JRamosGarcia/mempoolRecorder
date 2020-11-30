@@ -1,19 +1,18 @@
 package com.mempoolrecorder.components.alarms;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import com.mempoolrecorder.utils.SysProps;
 
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class AlarmLoggerImpl implements AlarmLogger {
-
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
-
 	// Concurrent optimized for high number or transversals.
 	private List<String> alarmList = new CopyOnWriteArrayList<>();
 
@@ -24,7 +23,7 @@ public class AlarmLoggerImpl implements AlarmLogger {
 
 	@Override
 	public void addAlarm(String alarm) {
-		alarmList.add(alarm);
+		alarmList.add(Instant.now().toString() + " - " + alarm);
 	}
 
 	@Override
@@ -40,8 +39,9 @@ public class AlarmLoggerImpl implements AlarmLogger {
 				sb.append(SysProps.NL);
 			}
 			sb.append("--------------------------------------------------------------------------");
-			logger.warn(sb.toString());
+			if (log.isWarnEnabled()) {
+				log.warn(sb.toString());
+			}
 		}
 	}
-
 }
