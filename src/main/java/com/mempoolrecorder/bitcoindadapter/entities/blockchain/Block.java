@@ -2,12 +2,8 @@ package com.mempoolrecorder.bitcoindadapter.entities.blockchain;
 
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import com.mempoolrecorder.utils.SysProps;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -27,8 +23,6 @@ public class Block {
 	private Integer weight;// up to 4 millions (sum of vSize*4)
 	private Instant minedTime;// This time is set by miners. Can be in the future!
 	private Instant medianMinedTime;// This time always increases with respect height
-
-	private List<String> txIds = new ArrayList<>(SysProps.EXPECTED_NUM_TX_IN_BLOCK);
 
 	private CoinBaseTx coinBaseTx;// also in txIds but not in notInMemPoolTransactions
 

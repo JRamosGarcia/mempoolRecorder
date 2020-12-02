@@ -19,5 +19,4 @@ public class TxPoolChanges {
 	private List<Transaction> newTxs = new ArrayList<>();
 	private List<String> removedTxsId = new ArrayList<>();
 	private Map<String, TxAncestryChanges> txAncestryChangesMap = new HashMap<>(SysProps.EXPECTED_MAX_ANCESTRY_CHANGES);
-
 }

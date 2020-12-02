@@ -1,21 +1,30 @@
 package com.mempoolrecorder.events;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
 import com.mempoolrecorder.bitcoindadapter.entities.blockchain.Block;
-import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
+import com.mempoolrecorder.entities.BlockTemplate;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * This class is an union of Block and TxPoolChanges since is meant to be used
- * as a kafka message for same topic conserving message order. The topic is a
- * "mempool event"
+ * This class is an union of Block, TxPoolChanges and BlockTemplate since is
+ * meant to be used as a kafka message for same topic conserving message order.
+ * The topic is a "mempool event"
+ * 
+ * Two kind of Events can be used: NEW_BLOCK and REFRESH_POOL. when NEW_BLOCK is
+ * sent, Block, TxPoolChanges and blockTemplate are sent. when REFRESH_POOL is
+ * sent, only txPoolChanges is sent.
  */
 @Getter
 @Setter
+@NoArgsConstructor
 public class MempoolEvent {
 	//
 	public enum EventType {
@@ -24,50 +33,41 @@ public class MempoolEvent {
 
 	private int seqNumber;
 	private EventType eventType;
-	private Block block;
 	private TxPoolChanges txPoolChanges;
-	private BlockTemplateChanges blockTemplateChanges;
+	private Optional<Block> block;
+	private Optional<BlockTemplate> blockTemplate;
 
-	private MempoolEvent() {
-	}
-
-	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges,
-			Optional<BlockTemplateChanges> blockTemplateChanges, int seqNumber) {
+	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges, int seqNumber) {
 		MempoolEvent mpe = new MempoolEvent();
-		mpe.seqNumber = seqNumber;
 		mpe.eventType = EventType.REFRESH_POOL;
 		mpe.txPoolChanges = txPoolChanges;
-		mpe.blockTemplateChanges = blockTemplateChanges.orElse(null);
-		return mpe;
-	}
-
-	public static MempoolEvent createFrom(Block block, int seqNumber) {
-		MempoolEvent mpe = new MempoolEvent();
 		mpe.seqNumber = seqNumber;
-		mpe.eventType = EventType.NEW_BLOCK;
-		mpe.block = block;
 		return mpe;
 	}
 
-	public Optional<Block> tryGetBlock() {
-		if (this.eventType != null && this.eventType == EventType.NEW_BLOCK) {
-			return Optional.ofNullable(block);
+	public static MempoolEvent createFrom(Block block, TxPoolChanges txPoolChanges,
+			Optional<BlockTemplate> blockTemplate, int seqNumber) {
+		MempoolEvent mpe = new MempoolEvent();
+		mpe.eventType = EventType.NEW_BLOCK;
+		mpe.txPoolChanges = txPoolChanges;
+		mpe.blockTemplate = blockTemplate;
+		mpe.block = Optional.of(block);
+		mpe.seqNumber = seqNumber;
+		return mpe;
+	}
+
+	/**
+	 * Returns blocks transactions in connected or disconnected blocks
+	 */
+	public Optional<List<String>> tryGetBlockTxIds() {
+		if (eventType != null && eventType == EventType.NEW_BLOCK && block.isPresent()) {
+			if (Boolean.TRUE.equals(block.get().getConnected())) {
+				return Optional.of(txPoolChanges.getRemovedTxsId());
+			} else {
+				return Optional
+						.of(txPoolChanges.getNewTxs().stream().map(Transaction::getTxId).collect(Collectors.toList()));
+			}
 		}
 		return Optional.empty();
 	}
-
-	public Optional<TxPoolChanges> tryGetTxPoolChanges() {
-		if (this.eventType != null && this.eventType == EventType.REFRESH_POOL) {
-			return Optional.ofNullable(txPoolChanges);
-		}
-		return Optional.empty();
-	}
-
-	public Optional<BlockTemplateChanges> tryGetBlockTemplateChanges() {
-		if (this.eventType != null && this.eventType == EventType.REFRESH_POOL) {
-			return Optional.ofNullable(blockTemplateChanges);
-		}
-		return Optional.empty();
-	}
-
 }

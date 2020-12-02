@@ -1,20 +1,17 @@
 package com.mempoolrecorder.threads;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
 import com.mempoolrecorder.bitcoindadapter.entities.blockchain.Block;
-import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxAncestryChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
 import com.mempoolrecorder.components.TxMemPool;
 import com.mempoolrecorder.components.alarms.AlarmLogger;
-import com.mempoolrecorder.components.containers.BlockTemplateContainer;
 import com.mempoolrecorder.components.containers.MempoolEventQueueContainer;
-import com.mempoolrecorder.entities.BlockTemplate;
 import com.mempoolrecorder.entities.database.StateOnNewBlock;
 import com.mempoolrecorder.events.MempoolEvent;
 import com.mempoolrecorder.feinginterfaces.BitcoindAdapter;
@@ -48,9 +45,6 @@ public class MempoolEventConsumer implements Runnable {
     private TxMemPool txMemPool;
 
     @Autowired
-    private BlockTemplateContainer blockTemplateContainer;
-
-    @Autowired
     private BitcoindAdapter bitcoindAdapter;
 
     @Autowired
@@ -61,8 +55,6 @@ public class MempoolEventConsumer implements Runnable {
 
     @Autowired
     private SonbRepositoryForDisconnectedBlocks sonbRepositoryForDisconnectedBlocks;
-
-    private int numBlocksBeforeBlockTC = 0;// Number of consecutive Blocks before a blockTemplateChanges arrives.
 
     private boolean isStarting = true;
     private int lastBASequence = -1;// Last BitcoindAdapter Sequence
@@ -86,19 +78,20 @@ public class MempoolEventConsumer implements Runnable {
 
     @Override
     public void run() {
-        try {
-            while (!endThread) {
+        // loop until shutdown
+        while (!endThread) {
+            try {
                 MempoolEvent event = mempoolEventQueueContainer.getBlockingQueue().take();
                 log.debug("This is the event: {}", event);
                 onEvent(event);
+            } catch (InterruptedException e) {
+                log.info("Thread interrupted for shutdown.");
+                log.debug("", e);
+                Thread.currentThread().interrupt();// It doesn't care, just to avoid sonar complaining.
+            } catch (Exception e) {
+                log.error("", e);
+                alarmLogger.addAlarm("Fatal error" + ExceptionUtils.getStackTrace(e));
             }
-        } catch (RuntimeException e) {
-            log.error("", e);
-            alarmLogger.addAlarm("Fatal error" + ExceptionUtils.getStackTrace(e));
-        } catch (InterruptedException e) {
-            log.info("Thread interrupted for shutdown.");
-            log.debug("", e);
-            Thread.currentThread().interrupt();// It doesn't care, just to avoid sonar complaining.
         }
     }
 
@@ -113,17 +106,15 @@ public class MempoolEventConsumer implements Runnable {
 
     private void onEventonStarting(MempoolEvent event) throws InterruptedException {
         if (event.getSeqNumber() == 0) {
-            log.info("bitcoindAdapter is starting while we are already up");
+            log.info("BitcoindAdapter is starting while we are already up");
             // We don't need resetContainers in case of bitcoindAdapter crash,
             // onErrorInSequence has done it for us.
         } else {
             log.info("BitcoindAdapater is already working, asking for full mempool and mempoolSequence...");
 
-            BlockTemplate blockTemplate = null;
             Map<String, Transaction> fullMemPoolMap = null;
-            while (blockTemplate == null || fullMemPoolMap == null) {
+            while (fullMemPoolMap == null) {
                 try {
-                    blockTemplate = bitcoindAdapter.getBlockTemplate();
                     fullMemPoolMap = bitcoindAdapter.getFullMemPool();
                 } catch (Exception e) {
                     log.warn("BitcoindAdapter is not ready yet waiting 5 seconds...");
@@ -134,7 +125,6 @@ public class MempoolEventConsumer implements Runnable {
             TxPoolChanges txpc = new TxPoolChanges();
             txpc.setNewTxs(new ArrayList<>(fullMemPoolMap.values()));
             txMemPool.refresh(txpc);
-            blockTemplateContainer.setBlockTemplate(blockTemplate);
             log.info("Full mempool has been queried from bitcoindAdapter.");
         }
         // Fake a lastBASequence because we are starting
@@ -148,26 +138,13 @@ public class MempoolEventConsumer implements Runnable {
         }
         switch (event.getEventType()) {
             case NEW_BLOCK:
-                Optional<Block> opBlock = event.tryGetBlock();
-                if (opBlock.isEmpty()) {
-                    alarmLogger.addAlarm("An empty block has come in a MempoolEvent.EventType.NEW_BLOCK");
-                    return;
-                }
-                Block block = opBlock.get();
-                onNewBlock(block);
+                // Block event has new block and refresh info, order matters, since we don't
+                // want to update blockTemplate before treating the new block
+                onNewBlock(event);
+                onRefreshEvent(event);
                 break;
             case REFRESH_POOL:
-                Optional<TxPoolChanges> opTxPC = event.tryGetTxPoolChanges();
-                if (opTxPC.isEmpty()) {
-                    alarmLogger.addAlarm("An empty TxPoolChanges has come in a MempoolEvent.EventType.REFRESH_POOL");
-                    return;
-                }
-                TxPoolChanges txpc = opTxPC.get();
-                Optional<BlockTemplateChanges> opBTC = event.tryGetBlockTemplateChanges();
-                if (opBTC.isPresent()) {
-                    numBlocksBeforeBlockTC = 0;
-                }
-                onNewTxPoolAndBTChanges(txpc, opBTC);
+                onRefreshEvent(event);
                 break;
             default:
                 throw new IllegalArgumentException("WTF! MempoolEventType not valid");
@@ -196,30 +173,25 @@ public class MempoolEventConsumer implements Runnable {
         lastBASequence = -1;// Last BitcoindAdapter Sequence
     }
 
-    public void reloadContainers() {
-        BlockTemplate blockTemplate = bitcoindAdapter.getBlockTemplate();
-        Map<String, Transaction> fullMemPoolMap = bitcoindAdapter.getFullMemPool();
+    private void onNewBlock(MempoolEvent blockEvent) {
 
-        TxPoolChanges txpc = new TxPoolChanges();
-        txpc.setNewTxs(new ArrayList<>(fullMemPoolMap.values()));
-        txMemPool.refresh(txpc);
-        blockTemplateContainer.setBlockTemplate(blockTemplate);
-    }
+        Optional<Block> opBlock = blockEvent.getBlock();
+        if (opBlock.isEmpty()) {
+            alarmLogger.addAlarm("An empty block has come in a MempoolEvent.EventType.NEW_BLOCK");
+            return;// numBlocksBeforeBlockTC is not incremented (below)
+        }
 
-    private void onNewBlock(Block block) {
-        log.info(
-                "New block(connected: {}, height: {}, hash: {}, txNum: {}, numBlocksBeforeBlockTC: {}) ---------------------------",
-                block.getConnected(), block.getHeight(), block.getHash(), block.getTxIds().size(),
-                numBlocksBeforeBlockTC);
+        Block block = blockEvent.getBlock().orElseThrow();
+        List<String> blockTxIds = blockEvent.tryGetBlockTxIds().orElseThrow();
+        log.info("New block(connected: {}, height: {}, hash: {}, txNum: {}) ---------------------------",
+                block.getConnected(), block.getHeight(), block.getHash(), blockTxIds.size());
         StateOnNewBlock sonb = new StateOnNewBlock();
         sonb.setHeight(block.getHeight());
         sonb.setBlock(block);
-        if (numBlocksBeforeBlockTC == 0) {
-            // If not, block Template is empty, because txMempool would not had received
-            // this data from bitcoind
-            sonb.setBlockTemplate(blockTemplateContainer.getBlockTemplate().getBlockTemplateTxMap().values().stream()
-                    .collect(Collectors.toList()));
-        }
+
+        // If not, block Template is empty, because txMempool would not had received
+        // this data from bitcoind
+        sonb.setBlockTemplate(blockEvent.getBlockTemplate().orElse(null));
         // Not sure if this is useful for disconected blocks
         txMemPool.getDescendingTxStream().forEach(tx -> {
             sonb.getMemPool().add(tx.getTxId());
@@ -235,20 +207,16 @@ public class MempoolEventConsumer implements Runnable {
             // disconnected blocks goes to other repository.
             sonbRepositoryForDisconnectedBlocks.save(sonb);
         }
-        numBlocksBeforeBlockTC++;
     }
 
-    // If txpc.changeCounter == 0 this means a bitcoindAdapter reset, we must reset.
-    // else Refresh mempool and blockTemplateContainer
-    private void onNewTxPoolAndBTChanges(TxPoolChanges txpc, Optional<BlockTemplateChanges> opBTC) {
+    private void onRefreshEvent(MempoolEvent refreshEvent) {
+        TxPoolChanges txpc = refreshEvent.getTxPoolChanges();
         validate(txpc);
         txMemPool.refresh(txpc);
-        opBTC.ifPresent(blockTemplateContainer::refresh);
     }
 
     private void resetContainers() {
         txMemPool.drop();
-        blockTemplateContainer.drop();
     }
 
     private void validate(TxPoolChanges txpc) {

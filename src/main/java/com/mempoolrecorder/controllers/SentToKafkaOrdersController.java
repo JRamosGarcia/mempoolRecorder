@@ -5,7 +5,6 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import com.mempoolrecorder.bitcoindadapter.entities.Transaction;
-import com.mempoolrecorder.bitcoindadapter.entities.blocktemplate.BlockTemplateChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxAncestryChanges;
 import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
 import com.mempoolrecorder.controllers.entities.RangeExecutionInfo;
@@ -67,8 +66,8 @@ public class SentToKafkaOrdersController {
 		sendFullMemPool(sonb);
 
 		// Then we send the Block
-		txSource.publishMemPoolEvent(MempoolEvent.createFrom(sonb.getBlock(), 0));
-
+		txSource.publishMemPoolEvent(
+				MempoolEvent.createFrom(sonb.getBlock(), new TxPoolChanges(), Optional.empty(), 0));
 	}
 
 	// This shoud be a post
@@ -94,7 +93,8 @@ public class SentToKafkaOrdersController {
 				// First we send full mempool
 				sendFullMemPool(sonb);
 				// Then we send the Block
-				txSource.publishMemPoolEvent(MempoolEvent.createFrom(sonb.getBlock(), 0));
+				txSource.publishMemPoolEvent(
+						MempoolEvent.createFrom(sonb.getBlock(), new TxPoolChanges(), Optional.empty(), 0));
 				rei.getExecutionInfoList().add(BLOCK_MSG + currHeight + ", sent.");
 				log.info(BLOCK_MSG + currHeight + ", sent.");
 			}
@@ -123,14 +123,7 @@ public class SentToKafkaOrdersController {
 			tx.setTxAncestry(txAncestryChanges.getTxAncestry());
 
 			if (txpc.getNewTxs().size() == 10) {
-				Optional<BlockTemplateChanges> opBTC = Optional.empty();
-				if (!txIdIt.hasNext()) {
-					// This is not needed since txMempool forces a mempoolRefresh when a block
-					// arrives
-					// txpc.setChangeCounter(1);// Force liveMempoolRefresh in txMempool
-					opBTC = createBTCFrom(sonb);// Send blockTemplate
-				}
-				txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, opBTC, 0));
+				txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, 0));
 				txpc.setNewTxs(new ArrayList<>(10));
 				pl.update(counter, percent -> log.info("Sending txMemPool for StateOnNewBlock:{} ....{}",
 						sonb.getHeight(), percent));
@@ -143,16 +136,10 @@ public class SentToKafkaOrdersController {
 			// This is not needed since txMempool forces a mempoolRefresh when a block
 			// arrives
 			// txpc.setChangeCounter(1);// Force liveMempoolRefresh in txMempool
-			txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, createBTCFrom(sonb), 0));// Send blockTemplate
+			txSource.publishMemPoolEvent(MempoolEvent.createFrom(txpc, 0));// Send blockTemplate
 			pl.update(counter,
 					percent -> log.info("Sending txMemPool for StateOnNewBlock:{} ....{}", sonb.getHeight(), percent));
 		}
-	}
-
-	private Optional<BlockTemplateChanges> createBTCFrom(StateOnNewBlock sonb) {
-		BlockTemplateChanges btc = new BlockTemplateChanges();
-		sonb.getBlockTemplate().stream().forEach(btTx -> btc.getAddBTTxsList().add(btTx));
-		return Optional.of(btc);
 	}
 
 	@ExceptionHandler(BlockNotFoundException.class)
