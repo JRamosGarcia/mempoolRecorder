@@ -2,6 +2,7 @@ package com.mempoolrecorder.entities.database;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,6 +24,7 @@ public class StateOnNewBlock {
 	@Id
 	private Integer height;
 	private Block block;
+	private List<String> blockTxIds;
 	private Set<String> memPool = new HashSet<>();
 	private BlockTemplate blockTemplate;
 	private Map<String, TxAncestryChanges> txAncestryChangesMap = new HashMap<>(SysProps.EXPECTED_MAX_ANCESTRY_CHANGES);

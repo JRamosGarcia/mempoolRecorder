@@ -188,6 +188,7 @@ public class MempoolEventConsumer implements Runnable {
         StateOnNewBlock sonb = new StateOnNewBlock();
         sonb.setHeight(block.getHeight());
         sonb.setBlock(block);
+        sonb.setBlockTxIds(blockTxIds);//Correct for connected and disconnected blocks
 
         // If not, block Template is empty, because txMempool would not had received
         // this data from bitcoind

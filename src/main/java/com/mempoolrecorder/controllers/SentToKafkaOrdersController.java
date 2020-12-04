@@ -93,8 +93,10 @@ public class SentToKafkaOrdersController {
 				// First we send full mempool
 				sendFullMemPool(sonb);
 				// Then we send the Block
+				TxPoolChanges txpc = new TxPoolChanges();
+				txpc.setRemovedTxsId(sonb.getBlockTxIds());
 				txSource.publishMemPoolEvent(
-						MempoolEvent.createFrom(sonb.getBlock(), new TxPoolChanges(), Optional.empty(), 0));
+						MempoolEvent.createFrom(sonb.getBlock(), txpc, Optional.ofNullable(sonb.getBlockTemplate()), 0));
 				rei.getExecutionInfoList().add(BLOCK_MSG + currHeight + ", sent.");
 				log.info(BLOCK_MSG + currHeight + ", sent.");
 			}
