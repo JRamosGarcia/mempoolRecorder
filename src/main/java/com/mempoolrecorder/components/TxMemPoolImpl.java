@@ -37,7 +37,7 @@ public class TxMemPoolImpl implements TxMemPool {
 			if (null != txKey) {
 				txMemPool.remove(txKey);
 			} else {
-				log.info("Removing non existing tx from mempool, txId: {}", txId);
+				log.debug("Removing non existing tx from mempool, txId: {}", txId);
 			}
 		});
 		txPoolChanges.getTxAncestryChangesMap().entrySet().stream().forEach(entry -> {
