@@ -24,7 +24,7 @@ public class StateOnNewBlock {
 	@Id
 	private Integer height;
 	private Block block;
-	private List<String> blockTxIds;
+	private List<String> blockTxIds; // Block TxIds in connected or disconnected Blocks
 	private Set<String> memPool = new HashSet<>();
 	private BlockTemplate blockTemplate;
 	private Map<String, TxAncestryChanges> txAncestryChangesMap = new HashMap<>(SysProps.EXPECTED_MAX_ANCESTRY_CHANGES);

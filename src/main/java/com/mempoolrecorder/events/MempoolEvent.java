@@ -21,6 +21,9 @@ import lombok.Setter;
  * Two kind of Events can be used: NEW_BLOCK and REFRESH_POOL. when NEW_BLOCK is
  * sent, Block, TxPoolChanges and blockTemplate are sent. when REFRESH_POOL is
  * sent, only txPoolChanges is sent.
+ * 
+ * mempoolSize is sent to know when downstream apps are syncronized with us.
+ * 
  */
 @Getter
 @Setter
@@ -32,27 +35,30 @@ public class MempoolEvent {
 	}
 
 	private int seqNumber;
+	private int mempoolSize;// This is the mempool size when this MeempoolEvent has been applied.
 	private EventType eventType;
 	private TxPoolChanges txPoolChanges;
 	private Optional<Block> block;
 	private Optional<BlockTemplate> blockTemplate;
 
-	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges, int seqNumber) {
+	public static MempoolEvent createFrom(TxPoolChanges txPoolChanges, int seqNumber, int mempoolSize) {
 		MempoolEvent mpe = new MempoolEvent();
 		mpe.eventType = EventType.REFRESH_POOL;
 		mpe.txPoolChanges = txPoolChanges;
 		mpe.seqNumber = seqNumber;
+		mpe.mempoolSize = mempoolSize;
 		return mpe;
 	}
 
 	public static MempoolEvent createFrom(Block block, TxPoolChanges txPoolChanges,
-			Optional<BlockTemplate> blockTemplate, int seqNumber) {
+			Optional<BlockTemplate> blockTemplate, int seqNumber, int mempoolSize) {
 		MempoolEvent mpe = new MempoolEvent();
 		mpe.eventType = EventType.NEW_BLOCK;
 		mpe.txPoolChanges = txPoolChanges;
 		mpe.blockTemplate = blockTemplate;
 		mpe.block = Optional.of(block);
 		mpe.seqNumber = seqNumber;
+		mpe.mempoolSize = mempoolSize;
 		return mpe;
 	}
 

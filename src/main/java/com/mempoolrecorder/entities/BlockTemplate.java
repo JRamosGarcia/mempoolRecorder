@@ -15,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class BlockTemplate {
 
-	// Height of the bock to be mined with this template.
+	// Height of the block to be mined with this template.
 	private int height;
 	private Map<String, BlockTemplateTx> blockTemplateTxMap = new HashMap<>(SysProps.HM_INITIAL_CAPACITY_FOR_BLOCK);
 
