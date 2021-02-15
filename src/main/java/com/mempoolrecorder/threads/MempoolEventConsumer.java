@@ -12,6 +12,7 @@ import com.mempoolrecorder.bitcoindadapter.entities.mempool.TxPoolChanges;
 import com.mempoolrecorder.components.TxMemPool;
 import com.mempoolrecorder.components.alarms.AlarmLogger;
 import com.mempoolrecorder.components.containers.MempoolEventQueueContainer;
+import com.mempoolrecorder.components.health.MempoolSyncedHealthIndicator;
 import com.mempoolrecorder.entities.database.StateOnNewBlock;
 import com.mempoolrecorder.events.MempoolEvent;
 import com.mempoolrecorder.feinginterfaces.BitcoindAdapter;
@@ -55,6 +56,9 @@ public class MempoolEventConsumer implements Runnable {
 
     @Autowired
     private SonbRepositoryForDisconnectedBlocks sonbRepositoryForDisconnectedBlocks;
+
+    @Autowired
+    private MempoolSyncedHealthIndicator mempoolSyncedHealthIndicator;
 
     private boolean isStarting = true;
     private int lastBASequence = -1;// Last BitcoindAdapter Sequence
@@ -129,6 +133,7 @@ public class MempoolEventConsumer implements Runnable {
         }
         // Fake a lastBASequence because we are starting
         lastBASequence = event.getSeqNumber() - 1;
+        mempoolSyncedHealthIndicator.setMempoolSynced(true);
     }
 
     private void treatEvent(MempoolEvent event) throws InterruptedException {
@@ -171,6 +176,7 @@ public class MempoolEventConsumer implements Runnable {
         // Reset downstream counter to provoke cascade resets.
         isStarting = true;
         lastBASequence = -1;// Last BitcoindAdapter Sequence
+        mempoolSyncedHealthIndicator.setMempoolSynced(false);
     }
 
     private void onNewBlock(MempoolEvent blockEvent) {
