@@ -20,4 +20,4 @@ FROM openjdk:11
 
 #Opcion funciona mio
 COPY ${DEPENDENCY} /
-ENTRYPOINT ["java", "-jar", "/app/mempoolRecorder-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java","-Xmx1024m","-Xms1024m", "-jar", "/app/mempoolRecorder-0.0.1-SNAPSHOT.jar"]
